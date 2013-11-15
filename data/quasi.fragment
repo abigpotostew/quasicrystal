@@ -1,0 +1,106 @@
+#ifdef GL_ES
+precision highp float;
+#endif
+
+#define PROCESSING_COLOR_SHADER
+
+uniform float time;
+uniform vec2 resolution;
+uniform float zoom;
+uniform float colorRange;
+uniform float colorShift;
+uniform int blackAndWhite;
+
+const float c = 0.90096886790241, s = 0.43388373911755; // sin and cos of pi / 7
+const vec2 rx=vec2(c, s), ry=vec2(-s, c);
+
+
+vec3 HSBToRGB(vec3 colorIn){
+
+	float h=colorIn.x;
+	float sl=colorIn.y;
+	float l=colorIn.z;
+
+	float v;
+	float r,g,b;
+
+	r = l; // default to gray
+	g = l;
+	b = l;
+
+	v = (l <= 0.5) ? (l * (1.0 + sl)) : (l + sl - l * sl);
+
+	if (v > 0.0){
+
+		float m;
+		float sv;
+		int sextant;
+		float frac, vsf, mid1, mid2;
+
+
+		m = l + l - v;
+		sv = (v - m ) / v;
+		h *= 6.0;
+		sextant = int(h);
+		frac = h - float(sextant);
+		vsf = v * sv * frac;
+		mid1 = m + vsf;
+		mid2 = v - vsf;
+		
+		
+		if(sextant==0){
+			r = v;
+			g = mid1;
+			b = m;
+		}else if(sextant==1){
+			r = mid2;
+			g = v;
+			b = m;
+		}else if(sextant==2){
+			r = m;
+			g = v;
+			b = mid1;
+		}else if(sextant==3){
+			r = m;
+			g = mid2;
+			b = v;
+		}else if(sextant==4){
+			r = mid1;
+			g = m;
+			b = v;
+		}else if(sextant==5){
+			r = v;
+			g = m;
+			b = mid2;
+		}
+	}
+
+	vec3 rgb;
+
+	rgb.r = r;
+	rgb.g = g;
+	rgb.b = b;
+
+	return rgb;
+}
+
+
+void main(void){
+	vec2 p = gl_FragCoord.xy / resolution.xy;
+	float t=time; // change this for more speed
+	vec2 up=vec2(zoom,0.0); // change this for finer/coarser stripes
+	float sum = 0.0;
+	for (int i = 0; i < 7; ++i){
+		sum += cos(dot(p,up)+t);
+		up = vec2(dot(up,rx), dot(up,ry));
+	}
+	//the important wrap around term. play with this for different effects
+	float a1=(cos(sum+2.0)+1.0) * 0.5;
+	if(blackAndWhite==1){
+		gl_FragColor = vec4(a1,a1,a1,1.0);
+	}else{
+		a1 = a1*colorRange+colorShift;
+		gl_FragColor = vec4(HSBToRGB(vec3(a1,.7,.5)),1.0);
+	}
+}
+
